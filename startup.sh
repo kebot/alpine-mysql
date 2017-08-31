@@ -33,6 +33,10 @@ GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
 UPDATE user SET password=PASSWORD("") WHERE user='root' AND host='localhost';
 EOF
 
+  if [ -f "/schema.sql" ]; then
+      cat /schema.sql >> $tfile
+  fi
+
   if [ "$MYSQL_DATABASE" != "" ]; then
     echo "[i] Creating database: $MYSQL_DATABASE"
     echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` CHARACTER SET utf8 COLLATE utf8_general_ci;" >> $tfile
