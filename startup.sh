@@ -34,8 +34,16 @@ UPDATE user SET password=PASSWORD("") WHERE user='root' AND host='localhost';
 EOF
 
   if [ -f "/schema.sql" ]; then
-      cat /schema.sql >> $tfile
+      echo "[i] Sync database schema"
+      cat /schema.sql | tee -a $tfile
   fi
+
+  shopt -s nullglob
+  for f in /initdata/*
+  do
+      echo "[i] import init data from $f"
+      cat $f >> $tfile
+  done
 
   if [ "$MYSQL_DATABASE" != "" ]; then
     echo "[i] Creating database: $MYSQL_DATABASE"
