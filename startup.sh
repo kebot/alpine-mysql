@@ -1,5 +1,11 @@
 #!/bin/sh
 
+set +e
+
+if [ ! -d "/run/mysqld" ]; then
+  mkdir -p /run/mysqld
+fi
+
 if [ -d /app/mysql ]; then
   echo "[i] MySQL directory already present, skipping creation"
 else
@@ -16,10 +22,6 @@ else
   MYSQL_USER=${MYSQL_USER:-""}
   MYSQL_PASSWORD=${MYSQL_PASSWORD:-""}
 
-  if [ ! -d "/run/mysqld" ]; then
-    mkdir -p /run/mysqld
-  fi
-
   tfile=`mktemp`
   if [ ! -f "$tfile" ]; then
       return 1
@@ -33,18 +35,6 @@ GRANT ALL PRIVILEGES ON *.* TO 'root'@'localhost' WITH GRANT OPTION;
 UPDATE user SET password=PASSWORD("") WHERE user='root' AND host='localhost';
 EOF
 
-  if [ -f "/schema.sql" ]; then
-      echo "[i] Sync database schema"
-      cat /schema.sql | tee -a $tfile
-  fi
-
-  shopt -s nullglob
-  for f in /initdata/*
-  do
-      echo "[i] import init data from $f"
-      cat $f >> $tfile
-  done
-
   if [ "$MYSQL_DATABASE" != "" ]; then
     echo "[i] Creating database: $MYSQL_DATABASE"
     echo "CREATE DATABASE IF NOT EXISTS \`$MYSQL_DATABASE\` CHARACTER SET utf8 COLLATE utf8_general_ci;" >> $tfile
@@ -53,11 +43,22 @@ EOF
       echo "[i] Creating user: $MYSQL_USER with password $MYSQL_PASSWORD"
       echo "GRANT ALL ON \`$MYSQL_DATABASE\`.* to '$MYSQL_USER'@'%' IDENTIFIED BY '$MYSQL_PASSWORD';" >> $tfile
     fi
+
+    if [ -f "/schema.sql" ]; then
+      echo "[i] Sync database schema"
+      echo "USE $MYSQL_DATABASE;" | tee -a $tfile
+      cat /schema.sql | tee -a $tfile
+      for f in $(find /initdata -type f)
+      do
+          echo "[i] import init data from $f"
+          cat $f >> $tfile
+      done
+    fi
   fi
 
   /usr/bin/mysqld --user=root --bootstrap --verbose=0 < $tfile
   rm -f $tfile
 fi
 
-
-exec /usr/bin/mysqld --user=root --console
+#exec /usr/bin/mysqld --user=root --console
+exec /usr/bin/mysqld --user=root --verbose=0
